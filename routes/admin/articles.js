@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { Article } = require('../../models');
 const { Op, or } = require('sequelize');
-
+const { success, failure, NotFoundError } = require('../../utils/response');
 
 router.get('/', async function (req, res, next) {
   try {
@@ -25,125 +25,89 @@ router.get('/', async function (req, res, next) {
     }
     // const articles = await Article.findAll(condition)
     const { rows: articles, count: total } = await Article.findAndCountAll(condition)
-    res.json({
-      status: true,
-      message: 'Articles fetched successfully',
-      data: {
-        articles,
-        pagination: {
-          currentPage,
-          pageSize,
-          total
-        }
+    success(res, 'Articles fetched successfully', {
+      articles,
+      pagination: {
+        currentPage,
+        pageSize,
+        total
       }
-    })
+    }, 200);
   } catch (error) {
-    res.status(500).json({
-      status: false,
-      message: [error.message],
-      data: null
-    })
+    failure(res, error);
   }
 
 });
 
 router.get('/:id', async function (req, res, next) {
   try {
-    console.log(req.params, '----')
-    const article = await Article.findByPk(req.params.id)
-    if (!article) {
-      return res.status(404).json({
-        status: false,
-        message: ['Article not found'],
-        data: null
-      })
-    }
-    res.json({
-      status: true,
-      message: 'Article fetched successfully',
-      data: article
-    })
+    const article = await getArticle(req);
+    success(res, 'Article fetched successfully', article, 200);
   } catch (error) {
-    res.status(500).json({
-      status: false,
-      message: [error.message],
-      data: null
-    })
+    failure(res, error);
   }
 });
 
 // 创建新文章
 router.post('/', async (req, res) => {
   try {
-    const article = await Article.create(req.body);
-    res.status(201).json({
-      status: true,
-      message: 'Article created successfully',
-      data: article
-    });
+    // 过滤掉req.body中的非法字段
+    const body = filterBody(req.body);
+
+    //验证
+    const article = await Article.create(body);
+    success(res, 'Article created successfully', article, 201);
   } catch (error) {
-    res.status(500).json({
-      status: false,
-      message: [error.message],
-      data: null
-    })
+    if (error.name === 'SequelizeValidationError') {
+      const errors = error.errors.map(e => e.message);
+      failure(res, error);
+    }
+    failure(res, error);
   }
 });
 
 // 删除文章
 router.delete('/:id', async (req, res) => {
   try {
-    const id = req.params.id;
-    const article = await Article.findByPk(id);
-    if (!article) {
-      return res.status(404).json({
-        status: false,
-        message: ['Article not found'],
-        data: null
-      });
-    }
+    const article = await getArticle(req);
     await article.destroy();
-    res.status(200).json({
-      status: true,
-      message: ['Article deleted successfully'],
-      data: null
-    });
+    success(res, 'Article deleted successfully', null, 200);
   } catch (error) {
-    res.status(500).json({
-      status: false,
-      message: [error.message],
-      data: null
-    })
+    failure(res, error);
   }
 });
 
 //更新文章
 router.put('/:id', async (req, res) => {
   try {
-    const { title, content } = req.body;
-    const article = await Article.findOne({ where: { id: req.params.id } });
-    if (!article) {
-      return res.status(404).json({
-        status: false,
-        message: ['Article not found'],
-        data: null
-      });
-    }
-    article.title = title;
-    article.content = content;
-    await article.save();
-    res.json({
-      status: true,
-      message: ['Article updated successfully'],
-      data: article
-    });
+    const body = filterBody(req.body);
+    const article = await getArticle(req);
+    await article.update(body);
+    success(res, 'Article updated successfully', article, 200);
   } catch (error) {
-    res.status(500).json({
-      status: false,
-      message: [error.message],
-      data: null
-    })
+    if (error.name === 'SequelizeValidationError') {
+      const errors = error.errors.map(e => e.message);
+      failure(res, error);
+    } else {
+      failure(res, error);
+    }
   }
 });
+
+function filterBody(body) {
+  const allowedFields = ['title', 'content'];
+  return Object.fromEntries(
+    Object.entries(body).filter(([key]) => allowedFields.includes(key))
+  );
+}
+
+async function getArticle(req) {
+  const { id } = req.params;
+  const article = await Article.findByPk(id);
+  if (!article) {
+    throw new NotFoundError('Article not found');
+  }
+  return article;
+}
 
 module.exports = router;
