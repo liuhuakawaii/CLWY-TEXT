@@ -8,6 +8,7 @@ const usersRouter = require('./routes/users');
 const adminArticlesRouter = require('./routes/admin/articles');
 const adminCategoriesRouter = require('./routes/admin/categories');
 const adminSettingsRouter = require('./routes/admin/settings');
+const adminUsersRouter = require('./routes/admin/users');
 
 // 导入错误处理中间件
 const { errorHandler } = require('./utils/middleware');
@@ -26,6 +27,7 @@ app.use('/users', usersRouter);
 app.use('/admin/articles', adminArticlesRouter);
 app.use('/admin/categories', adminCategoriesRouter);
 app.use('/admin/settings', adminSettingsRouter);
+app.use('/admin/users', adminUsersRouter);
 
 // 404 处理
 app.use('*', (req, res) => {
