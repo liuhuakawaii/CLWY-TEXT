@@ -1,113 +1,74 @@
 const express = require('express');
 const router = express.Router();
-const { Article } = require('../../models');
-const { Op, or } = require('sequelize');
-const { success, failure, NotFoundError } = require('../../utils/response');
+const ArticleService = require('../../services/articleService');
+const { success, successWithPagination } = require('../../utils/response');
+const { asyncHandler, paginationMiddleware, validateParams } = require('../../utils/middleware');
 
-router.get('/', async function (req, res, next) {
-  try {
-    const { title, content } = req.query;
-    const currentPage = parseInt(req.query.currentPage) || 1;
-    const pageSize = parseInt(req.query.pageSize) || 10;
-    const condition = {
-      where: {},
-      order: [['id', 'DESC']],
-      limit: pageSize,
-      offset: (currentPage - 1) * pageSize
-    }
-    if (title || content) {
-      condition.where = {
-        [Op.or]: [
-          { title: { [Op.like]: `%${title}%` } },
-          { content: { [Op.like]: `%${content}%` } }
-        ]
-      }
-    }
-    // const articles = await Article.findAll(condition)
-    const { rows: articles, count: total } = await Article.findAndCountAll(condition)
-    success(res, 'Articles fetched successfully', {
-      articles,
-      pagination: {
-        currentPage,
-        pageSize,
-        total
-      }
-    }, 200);
-  } catch (error) {
-    failure(res, error);
-  }
+// 验证规则
+const createArticleValidation = {
+  title: { required: true, minLength: 2, maxLength: 30 },
+  content: { required: true, minLength: 1, maxLength: 1000 }
+};
 
-});
+const updateArticleValidation = {
+  title: { minLength: 2, maxLength: 30 },
+  content: { minLength: 1, maxLength: 1000 }
+};
 
-router.get('/:id', async function (req, res, next) {
-  try {
-    const article = await getArticle(req);
-    success(res, 'Article fetched successfully', article, 200);
-  } catch (error) {
-    failure(res, error);
-  }
-});
+/**
+ * 获取文章列表（支持搜索和分页）
+ * GET /admin/articles?title=xxx&content=xxx&currentPage=1&pageSize=10
+ */
+router.get('/', paginationMiddleware, asyncHandler(async (req, res) => {
+  const { title, content } = req.query;
+  const { pagination } = req;
 
-// 创建新文章
-router.post('/', async (req, res) => {
-  try {
-    // 过滤掉req.body中的非法字段
-    const body = filterBody(req.body);
+  const result = await ArticleService.getArticles({ title, content, pagination });
 
-    //验证
-    const article = await Article.create(body);
-    success(res, 'Article created successfully', article, 201);
-  } catch (error) {
-    if (error.name === 'SequelizeValidationError') {
-      const errors = error.errors.map(e => e.message);
-      failure(res, error);
-    }
-    failure(res, error);
-  }
-});
+  successWithPagination(res, 'Articles fetched successfully', result.articles, result.pagination);
+}));
 
-// 删除文章
-router.delete('/:id', async (req, res) => {
-  try {
-    const article = await getArticle(req);
-    await article.destroy();
-    success(res, 'Article deleted successfully', null, 200);
-  } catch (error) {
-    failure(res, error);
-  }
-});
-
-//更新文章
-router.put('/:id', async (req, res) => {
-  try {
-    const body = filterBody(req.body);
-    const article = await getArticle(req);
-    await article.update(body);
-    success(res, 'Article updated successfully', article, 200);
-  } catch (error) {
-    if (error.name === 'SequelizeValidationError') {
-      const errors = error.errors.map(e => e.message);
-      failure(res, error);
-    } else {
-      failure(res, error);
-    }
-  }
-});
-
-function filterBody(body) {
-  const allowedFields = ['title', 'content'];
-  return Object.fromEntries(
-    Object.entries(body).filter(([key]) => allowedFields.includes(key))
-  );
-}
-
-async function getArticle(req) {
+/**
+ * 获取单个文章
+ * GET /admin/articles/:id
+ */
+router.get('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const article = await Article.findByPk(id);
-  if (!article) {
-    throw new NotFoundError('Article not found');
-  }
-  return article;
-}
+  const article = await ArticleService.getArticleById(id);
+
+  success(res, 'Article fetched successfully', article);
+}));
+
+/**
+ * 创建新文章
+ * POST /admin/articles
+ */
+router.post('/', validateParams(createArticleValidation), asyncHandler(async (req, res) => {
+  const article = await ArticleService.createArticle(req.body);
+
+  success(res, 'Article created successfully', article, 201);
+}));
+
+/**
+ * 更新文章
+ * PUT /admin/articles/:id
+ */
+router.put('/:id', validateParams(updateArticleValidation), asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const article = await ArticleService.updateArticle(id, req.body);
+
+  success(res, 'Article updated successfully', article);
+}));
+
+/**
+ * 删除文章
+ * DELETE /admin/articles/:id
+ */
+router.delete('/:id', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  await ArticleService.deleteArticle(id);
+
+  success(res, 'Article deleted successfully', null);
+}));
 
 module.exports = router;

@@ -3,7 +3,7 @@ const {
   Model
 } = require('sequelize');
 module.exports = (sequelize, DataTypes) => {
-  class Article extends Model {
+  class Category extends Model {
     /**
      * Helper method for defining associations.
      * This method is not a part of Sequelize lifecycle.
@@ -13,42 +13,49 @@ module.exports = (sequelize, DataTypes) => {
       // define association here
     }
   }
-  Article.init({
-    title: {
+  Category.init({
+    name: {
       type: DataTypes.STRING,
       allowNull: false,
+      unique: {
+        msg: '名称已存在，请重新输入'
+      },
       validate: {
         notNull: {
-          msg: 'Title is required',
+          msg: '名称必须填写'
         },
         notEmpty: {
-          msg: 'Title is required',
+          msg: '名称不能为空'
         },
         len: {
-          args: [2, 30],
-          msg: 'Title must be between 2 and 30 characters',
-        },
+          args: [2, 45],
+          msg: '名称长度必须在2到45个字符之间'
+        }
       }
     },
-    content: {
-      type: DataTypes.TEXT,
+    rang: {
+      type: DataTypes.INTEGER,
       allowNull: false,
       validate: {
         notNull: {
-          msg: 'Content is required',
+          msg: '排序必须填写'
         },
         notEmpty: {
-          msg: 'Content is required',
+          msg: '排序不能为空'
         },
-        len: {
-          args: [1, 1000],
-          msg: 'Content must be between 1 and 1000 characters',
+        isInt: {
+          msg: '排序必须是整数'
         },
+        isPositive(v) {
+          if (v <= 0) {
+            throw new Error('排序必须大于0');
+          }
+        }
       }
     }
   }, {
     sequelize,
-    modelName: 'Article',
+    modelName: 'Category',
   });
-  return Article;
+  return Category;
 };

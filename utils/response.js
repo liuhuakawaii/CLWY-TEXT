@@ -6,40 +6,88 @@ class NotFoundError extends Error {
   }
 }
 
+class ValidationError extends Error {
+  constructor(message, errors = []) {
+    super(message);
+    this.name = 'ValidationError';
+    this.statusCode = 400;
+    this.errors = errors;
+  }
+}
 
+class UnauthorizedError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'UnauthorizedError';
+    this.statusCode = 401;
+  }
+}
+
+/**
+ * 成功响应
+ */
 function success(res, message, data = {}, code = 200) {
   res.status(code).json({
     status: true,
     message,
-    data
+    data,
+    timestamp: new Date().toISOString()
   });
 }
 
+/**
+ * 分页成功响应
+ */
+function successWithPagination(res, message, data, pagination) {
+  res.status(200).json({
+    status: true,
+    message,
+    data,
+    pagination,
+    timestamp: new Date().toISOString()
+  });
+}
+
+/**
+ * 失败响应
+ */
 function failure(res, error) {
+  let statusCode = 500;
+  let message = error.message;
+  let errors = [];
+
+  // 根据错误类型设置响应
   if (error.name === 'SequelizeValidationError') {
-    const errors = error.errors.map(e => e.message);
-    return res.status(400).json({
-      status: false,
-      message: 'Validation failed',
-      errors
-    });
+    statusCode = 400;
+    message = 'Validation failed';
+    errors = error.errors.map(e => e.message);
+  } else if (error.name === 'NotFoundError') {
+    statusCode = 404;
+    message = error.message;
+  } else if (error.name === 'ValidationError') {
+    statusCode = 400;
+    message = error.message;
+    errors = error.errors || [];
+  } else if (error.name === 'UnauthorizedError') {
+    statusCode = 401;
+    message = error.message;
+  } else if (error.statusCode) {
+    statusCode = error.statusCode;
   }
-  if (error.name === 'NotFoundError') {
-    return res.status(404).json({
-      status: false,
-      message: [error.message],
-      data: null
-    });
-  }
-  res.status(500).json({
+
+  res.status(statusCode).json({
     status: false,
-    message: [error.message],
-    data: null
+    message,
+    errors: errors.length > 0 ? errors : undefined,
+    timestamp: new Date().toISOString()
   });
 }
 
 module.exports = {
   NotFoundError,
+  ValidationError,
+  UnauthorizedError,
   success,
+  successWithPagination,
   failure
-}
+};
