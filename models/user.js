@@ -2,6 +2,7 @@
 const {
   Model
 } = require('sequelize');
+const bcrypt = require('bcryptjs');
 module.exports = (sequelize, DataTypes) => {
   class User extends Model {
     /**
@@ -11,6 +12,15 @@ module.exports = (sequelize, DataTypes) => {
      */
     static associate(models) {
       // define association here
+    }
+
+    /**
+     * 验证密码是否正确
+     * @param {string} password - 明文密码
+     * @returns {boolean} - 密码是否匹配
+     */
+    validatePassword(password) {
+      return bcrypt.compareSync(password, this.password);
     }
   }
   User.init({
@@ -33,9 +43,15 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false,
       unique: true,
       validate: {
-        is: {
-          args: /^[a-zA-Z][a-zA-Z0-9_]{5,15}$/,
-          msg: '用户名必须以字母开头，长度为5-15个字符'
+        notEmpty: { msg: '密码不能为空' },
+        notNull: { msg: '密码不能为空' }
+      },
+      set(value) {
+        // 使用bcrypt对密码进行加密
+        if (value) {
+          const saltRounds = 10;
+          const hashedPassword = bcrypt.hashSync(value, saltRounds);
+          this.setDataValue('password', hashedPassword);
         }
       }
     },

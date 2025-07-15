@@ -1,13 +1,18 @@
 'use strict';
 
+const bcrypt = require('bcryptjs');
+
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
+    const saltRounds = 10;
+    const hashedPassword = bcrypt.hashSync('a123456', saltRounds);
+
     await queryInterface.bulkInsert('Users', [
       {
         email: 'admin@clwy.com',
         username: 'admin',
-        password: '123456',
+        password: hashedPassword,
         nickname: 'admin',
         sex: 2,
         company: 'clwy',
@@ -20,7 +25,7 @@ module.exports = {
       {
         email: 'user@clwy.com',
         username: 'user',
-        password: '123456',
+        password: hashedPassword,
         nickname: 'user',
         sex: 2,
         company: 'clwy',
@@ -33,7 +38,7 @@ module.exports = {
       {
         email: 'user2@clwy.com',
         username: 'user2',
-        password: '123456',
+        password: hashedPassword,
         nickname: 'user2',
         sex: 2,
         company: 'clwy',

@@ -112,6 +112,33 @@ class UserService {
   }
 
   /**
+ * 验证用户登录
+ * @param {string} email - 用户邮箱
+ * @param {string} password - 明文密码
+ * @returns {Object|null} - 用户信息或null
+ */
+  static async validateUser(email, password) {
+    const user = await User.findOne({
+      where: { email }
+    });
+
+    if (!user) {
+      return null;
+    }
+
+    // 验证密码
+    const isPasswordValid = user.validatePassword(password);
+    if (!isPasswordValid) {
+      return null;
+    }
+
+    // 返回用户信息（排除密码）
+    const userWithoutPassword = user.toJSON();
+    delete userWithoutPassword.password;
+    return userWithoutPassword;
+  }
+
+  /**
    * 过滤允许的字段
    */
   static filterAllowedFields(data) {
